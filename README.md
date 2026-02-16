@@ -20,5 +20,4 @@ cd backend
 (Si no tienes instaladas las dependencias) pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 
-
 Health check: http://localhost:8000/health
