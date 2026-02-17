@@ -34,6 +34,15 @@ class CouponsResponse(BaseModel):
     coupons: List[str]
 
 
+class StoreItem(BaseModel):
+    id: str
+    domain: str
+    is_shopify: bool
+
+
+class StoresResponse(BaseModel):
+    stores: List[StoreItem]
+
 
 @app.get("/health")
 def health():
@@ -136,5 +145,35 @@ def get_coupons(url: str = Query(..., description="Store URL or domain (raw; wil
         domain=store["domain"],
         is_shopify=store["is_shopify"],
         coupons=codes
+    )
+
+
+@app.get("/api/stores", response_model=StoresResponse)
+def list_stores():
+    """
+    Returns stores that have at least one active coupon.
+    Used by Explore to show stores with available codes.
+    """
+    coupons_res = (
+        supabase.table("coupons")
+        .select("store_id")
+        .eq("status", "active")
+        .execute()
+    )
+    store_ids = list({row["store_id"] for row in (coupons_res.data or [])})
+    if not store_ids:
+        return StoresResponse(stores=[])
+
+    stores_res = (
+        supabase.table("stores")
+        .select("id, domain, is_shopify")
+        .in_("id", store_ids)
+        .execute()
+    )
+    return StoresResponse(
+        stores=[
+            StoreItem(id=s["id"], domain=s["domain"], is_shopify=s["is_shopify"])
+            for s in (stores_res.data or [])
+        ]
     )
 
