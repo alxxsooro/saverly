@@ -13,7 +13,7 @@ export function Hero() {
         </p>
         <div className="mt-10">
           <Button asChild size="lg" className="text-base">
-            <Link href="/dashboard">Sign up</Link>
+            <Link href="/signup">Sign up</Link>
           </Button>
         </div>
       </div>

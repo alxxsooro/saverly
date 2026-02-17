@@ -27,13 +27,13 @@ export function Navbar() {
             FAQ
           </a>
           <Link
-            href="/dashboard"
+            href="/login"
             className="text-sm text-neutral-600 hover:text-neutral-900"
           >
             Log in
           </Link>
           <Button asChild size="sm">
-            <Link href="/dashboard">Sign up</Link>
+            <Link href="/signup">Sign up</Link>
           </Button>
         </nav>
       </div>

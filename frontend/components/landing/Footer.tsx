@@ -26,7 +26,7 @@ export function Footer() {
             FAQ
           </a>
           <Link
-            href="/dashboard"
+            href="/signup"
             className="text-sm text-neutral-500 hover:text-neutral-900"
           >
             Sign up
