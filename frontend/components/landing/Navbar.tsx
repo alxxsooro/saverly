@@ -33,7 +33,7 @@ export function Navbar() {
             Log in
           </Link>
           <Button asChild size="sm">
-            <Link href="/signup">Sign up</Link>
+            <Link href="/signup">Get Started</Link>
           </Button>
         </nav>
       </div>

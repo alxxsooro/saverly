@@ -29,7 +29,7 @@ export function Footer() {
             href="/signup"
             className="text-sm text-neutral-500 hover:text-neutral-900"
           >
-            Sign up
+            Get Started
           </Link>
         </nav>
       </div>
