@@ -23,7 +23,7 @@ const testimonials = [
 
 export function Testimonials() {
   return (
-    <section className="px-4 py-20 sm:px-6 sm:py-24">
+    <section className="px-4 pt-10 pb-10 sm:px-6 sm:pt-12 sm:pb-12">
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
           <h2 className="text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">

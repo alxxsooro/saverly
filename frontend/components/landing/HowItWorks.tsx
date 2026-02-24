@@ -25,7 +25,7 @@ export function HowItWorks() {
   return (
     <section
       id="how-it-works"
-      className="scroll-mt-20 border-t border-neutral-200/80 bg-neutral-50/50 px-4 pt-10 pb-14 sm:px-6 sm:pt-12 sm:pb-16"
+      className="scroll-mt-20 border-t border-neutral-200/80 bg-neutral-50/50 px-4 pt-10 pb-8 sm:px-6 sm:pt-12 sm:pb-10"
     >
       <div className="mx-auto max-w-5xl">
         <div className="text-center">
