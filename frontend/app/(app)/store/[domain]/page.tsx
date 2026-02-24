@@ -12,6 +12,14 @@ type CouponsResponse = {
   coupons: string[];
 };
 
+type SavedCodeItem = {
+  id: string;
+  store_id: string;
+  domain: string;
+  code: string;
+  created_at: string;
+};
+
 function StoreLogo({ domain }: { domain: string }) {
   const favicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
   const [imgFailed, setImgFailed] = useState(false);
@@ -147,7 +155,29 @@ export default function StorePage({
           throw new Error(json?.detail ?? "Request failed");
         }
 
-        setData(json as CouponsResponse);
+        const couponsData = json as CouponsResponse;
+        setData(couponsData);
+
+        // Fetch already saved codes for this user and store
+        const supabase = createClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          const savedRes = await fetch(`${API_BASE}/api/saved-codes`, {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+          if (savedRes.ok) {
+            const savedJson = await savedRes.json();
+            const allSaved = (savedJson.codes as SavedCodeItem[] | undefined) ?? [];
+            const forThisStore = allSaved
+              .filter((c) => c.domain === couponsData.domain)
+              .map((c) => c.code);
+            setSavedCodes(forThisStore);
+          }
+        }
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Something went wrong");
       } finally {
@@ -215,18 +245,28 @@ export default function StorePage({
                     >
                       {copiedCode === code ? "Copied" : "Copy"}
                     </Button>
+                    {(() => {
+                      const isSaved = savedCodes.includes(code);
+                      const isSaving = savingCode === code;
+                      return (
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={savingCode === code || savedCodes.includes(code)}
-                      onClick={() => handleSaveCode(code)}
+                        className="cursor-pointer"
+                        disabled={isSaving}
+                        onClick={() => {
+                          if (isSaved) return;
+                          handleSaveCode(code);
+                        }}
                     >
-                      {savedCodes.includes(code)
-                        ? "Saved"
-                        : savingCode === code
-                        ? "Saving…"
-                        : "Save"}
+                          {isSaved
+                            ? "Saved"
+                            : isSaving
+                            ? "Saving…"
+                            : "Save"}
                     </Button>
+                      );
+                    })()}
                   </div>
                 </li>
               ))}
