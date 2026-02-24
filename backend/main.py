@@ -1,12 +1,13 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
 from supabase_client import supabase
-from typing import List
+from typing import List, Optional
 from fastapi import Query
 
 from utils import normalize_domain, is_shopify_html, is_shopify_by_cart_js
+from auth import get_user_id_from_token, require_user_id
 
 app = FastAPI(title="Discountly API")
 
@@ -42,6 +43,41 @@ class StoreItem(BaseModel):
 
 class StoresResponse(BaseModel):
     stores: List[StoreItem]
+
+
+class CreateRequestPayload(BaseModel):
+    domain: str
+    email: Optional[str] = None
+
+
+class RequestItem(BaseModel):
+    id: str
+    store_id: str
+    domain: str
+    status: str
+    created_at: str
+    coupons: List[str] = []
+
+
+class RequestsResponse(BaseModel):
+    requests: List[RequestItem]
+
+
+class SaveCodePayload(BaseModel):
+    domain: str
+    code: str
+
+
+class SavedCodeItem(BaseModel):
+    id: str
+    store_id: str
+    domain: str
+    code: str
+    created_at: str
+
+
+class SavedCodesResponse(BaseModel):
+    codes: List[SavedCodeItem]
 
 
 @app.get("/health")
@@ -176,4 +212,208 @@ def list_stores():
             for s in (stores_res.data or [])
         ]
     )
+
+
+@app.post("/api/requests")
+def create_request(
+    payload: CreateRequestPayload,
+    user_id: Optional[str] = Depends(get_user_id_from_token),
+):
+    """
+    Create a request for codes for a store (e.g. Shopify store we don't have codes for).
+    Requires either Bearer token (user_id) or email in body.
+    """
+    if not user_id and not (payload.email and payload.email.strip()):
+        raise HTTPException(
+            status_code=400,
+            detail="Either log in (Authorization: Bearer <token>) or provide email in body",
+        )
+    try:
+        domain = normalize_domain(payload.domain)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    store_res = (
+        supabase.table("stores")
+        .select("id")
+        .eq("domain", domain)
+        .limit(1)
+        .execute()
+    )
+    if not store_res.data:
+        raise HTTPException(status_code=404, detail=f"Store '{domain}' not found. Search the store first (POST /api/store/inspect).")
+
+    store_id = store_res.data[0]["id"]
+    row = {
+        "store_id": store_id,
+        "status": "pending",
+    }
+    if user_id:
+        row["user_id"] = user_id
+    if payload.email and payload.email.strip():
+        row["email"] = payload.email.strip()
+
+    ins = supabase.table("requests").insert(row).execute()
+    if not ins.data or len(ins.data) == 0:
+        raise HTTPException(status_code=500, detail="Failed to create request")
+    return {"id": ins.data[0]["id"], "store_id": store_id, "status": "pending"}
+
+
+@app.get("/api/requests", response_model=RequestsResponse)
+def list_my_requests(user_id: str = Depends(require_user_id)):
+    """
+    List requests for the authenticated user. For status=done, includes coupon codes.
+    """
+    req_res = (
+        supabase.table("requests")
+        .select("id, store_id, status, created_at")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    rows = req_res.data or []
+    if not rows:
+        return RequestsResponse(requests=[])
+
+    store_ids = list({r["store_id"] for r in rows})
+    stores_res = (
+        supabase.table("stores")
+        .select("id, domain")
+        .in_("id", store_ids)
+        .execute()
+    )
+    store_by_id = {s["id"]: s["domain"] for s in (stores_res.data or [])}
+
+    # For status=done, fetch active coupons per store
+    coupons_res = (
+        supabase.table("coupons")
+        .select("store_id, code")
+        .in_("store_id", store_ids)
+        .eq("status", "active")
+        .execute()
+    )
+    coupons_by_store: dict = {}
+    for c in (coupons_res.data or []):
+        sid = c["store_id"]
+        if sid not in coupons_by_store:
+            coupons_by_store[sid] = []
+        coupons_by_store[sid].append(c["code"])
+
+    out = []
+    for r in rows:
+        domain = store_by_id.get(r["store_id"], "")
+        coupons = coupons_by_store.get(r["store_id"], []) if r["status"] == "done" else []
+        out.append(
+            RequestItem(
+                id=r["id"],
+                store_id=r["store_id"],
+                domain=domain,
+                status=r["status"],
+                created_at=r["created_at"],
+                coupons=coupons,
+            )
+        )
+    return RequestsResponse(requests=out)
+
+
+@app.post("/api/saved-codes")
+def save_code(
+    payload: SaveCodePayload,
+    user_id: str = Depends(require_user_id),
+):
+    """
+    Save an existing active coupon code for a store to the user's saved codes.
+    """
+    try:
+        domain = normalize_domain(payload.domain)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    store_res = (
+        supabase.table("stores")
+        .select("id")
+        .eq("domain", domain)
+        .limit(1)
+        .execute()
+    )
+    if not store_res.data:
+        raise HTTPException(status_code=404, detail=f"Store '{domain}' not found.")
+
+    store_id = store_res.data[0]["id"]
+
+    # Ensure the code exists and is active for this store
+    coupon_res = (
+        supabase.table("coupons")
+        .select("id")
+        .eq("store_id", store_id)
+        .eq("code", payload.code)
+        .eq("status", "active")
+        .limit(1)
+        .execute()
+    )
+    if not coupon_res.data:
+        raise HTTPException(status_code=400, detail="Coupon code not found for this store.")
+
+    try:
+        ins = (
+            supabase.table("saved_codes")
+            .upsert(
+                {
+                    "user_id": user_id,
+                    "store_id": store_id,
+                    "code": payload.code,
+                },
+                on_conflict="user_id,store_id,code",
+            )
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save code: {e}")
+
+    row = ins.data[0]
+    return {
+        "id": row["id"],
+        "store_id": row["store_id"],
+        "code": row["code"],
+    }
+
+
+@app.get("/api/saved-codes", response_model=SavedCodesResponse)
+def list_saved_codes(user_id: str = Depends(require_user_id)):
+    """
+    List codes the authenticated user has saved.
+    """
+    rows_res = (
+        supabase.table("saved_codes")
+        .select("id, store_id, code, created_at")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    rows = rows_res.data or []
+    if not rows:
+        return SavedCodesResponse(codes=[])
+
+    store_ids = list({r["store_id"] for r in rows})
+    stores_res = (
+        supabase.table("stores")
+        .select("id, domain")
+        .in_("id", store_ids)
+        .execute()
+    )
+    store_by_id = {s["id"]: s["domain"] for s in (stores_res.data or [])}
+
+    out: List[SavedCodeItem] = []
+    for r in rows:
+        domain = store_by_id.get(r["store_id"], "")
+        out.append(
+            SavedCodeItem(
+                id=r["id"],
+                store_id=r["store_id"],
+                domain=domain,
+                code=r["code"],
+                created_at=r["created_at"],
+            )
+        )
+    return SavedCodesResponse(codes=out)
 

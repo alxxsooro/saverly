@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { use, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { createClient } from "@/lib/supabase/client";
 
 type CouponsResponse = {
   domain: string;
@@ -23,8 +24,84 @@ export default function StorePage({
   const [data, setData] = useState<CouponsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [requestSent, setRequestSent] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const [savingCode, setSavingCode] = useState<string | null>(null);
+  const [savedCodes, setSavedCodes] = useState<string[]>([]);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const urlParam = useMemo(() => domain, [domain]);
+
+  async function handleRequestCodes() {
+    if (!data || !API_BASE) return;
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      window.location.href = `/login?returnUrl=${encodeURIComponent(`/store/${encodeURIComponent(domain)}`)}`;
+      return;
+    }
+    setRequesting(true);
+    setError(null);
+    setSaveError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/requests`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ domain: data.domain }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.detail ?? "Request failed");
+      setRequestSent(true);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setRequesting(false);
+    }
+  }
+
+  async function handleSaveCode(code: string) {
+    if (!data || !API_BASE) return;
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      window.location.href = `/login?returnUrl=${encodeURIComponent(`/store/${encodeURIComponent(domain)}`)}`;
+      return;
+    }
+    setSaveError(null);
+    setSavingCode(code);
+    try {
+      const res = await fetch(`${API_BASE}/api/saved-codes`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ domain: data.domain, code }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json?.detail ?? "Request failed");
+      }
+      setSavedCodes((prev) =>
+        prev.includes(code) ? prev : [...prev, code]
+      );
+    } catch (e: unknown) {
+      setSaveError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setSavingCode(null);
+    }
+  }
+
+  function handleCopy(code: string) {
+    navigator.clipboard.writeText(code);
+    setCopiedCode(code);
+    setTimeout(() => {
+      setCopiedCode((current) => (current === code ? null : current));
+    }, 2000);
+  }
 
   useEffect(() => {
     async function run() {
@@ -104,15 +181,35 @@ export default function StorePage({
                   className="flex items-center justify-between rounded-xl bg-neutral-50 px-4 py-3"
                 >
                   <span className="font-mono text-sm">{code}</span>
-                  <Button
-                    size="sm"
-                    onClick={() => navigator.clipboard.writeText(code)}
-                  >
-                    Copy
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="cursor-pointer"
+                      onClick={() => handleCopy(code)}
+                    >
+                      {copiedCode === code ? "Copied" : "Copy"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={savingCode === code || savedCodes.includes(code)}
+                      onClick={() => handleSaveCode(code)}
+                    >
+                      {savedCodes.includes(code)
+                        ? "Saved"
+                        : savingCode === code
+                        ? "Saving…"
+                        : "Save"}
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>
+            {saveError && (
+              <p className="mt-3 text-sm text-red-600" role="alert">
+                {saveError}
+              </p>
+            )}
           </div>
         )}
 
@@ -123,15 +220,23 @@ export default function StorePage({
               We don’t have working codes for this store yet.
             </p>
 
-            <div className="mt-5 flex flex-wrap gap-3">
-              <Button disabled title="Coming next sprint">
-                Request codes (coming soon)
-              </Button>
-
-              <Button asChild variant="outline">
-                <Link href="/dashboard">Try another store</Link>
-              </Button>
-            </div>
+            {requestSent ? (
+              <p className="mt-4 text-sm text-emerald-600">
+                Request saved. We&apos;ll notify you when we have codes for this store.
+              </p>
+            ) : (
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Button
+                  onClick={handleRequestCodes}
+                  disabled={requesting}
+                >
+                  {requesting ? "Saving…" : "Request codes"}
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/dashboard">Try another store</Link>
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </section>
