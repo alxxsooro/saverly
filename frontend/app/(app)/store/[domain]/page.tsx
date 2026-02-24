@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { use, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/client";
 
 type CouponsResponse = {
@@ -10,6 +11,28 @@ type CouponsResponse = {
   is_shopify: boolean;
   coupons: string[];
 };
+
+function StoreLogo({ domain }: { domain: string }) {
+  const favicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+  const [imgFailed, setImgFailed] = useState(false);
+  return (
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-neutral-100">
+      {!imgFailed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={favicon}
+          alt=""
+          className="h-8 w-8 object-contain"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        <span className="text-lg font-semibold text-neutral-400">
+          {domain.charAt(0).toUpperCase()}
+        </span>
+      )}
+    </div>
+  );
+}
 
 export default function StorePage({
   params,
@@ -138,31 +161,34 @@ export default function StorePage({
   return (
     <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-12">
       <div className="flex items-start justify-between gap-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl">
-            {domain}
-          </h1>
-          <p className="mt-2 text-neutral-600">
-            {loading
-              ? "Checking available coupons..."
-              : data
-              ? data.is_shopify
-                ? "Shopify store detected."
-                : "This store doesn’t look like Shopify (limited support for now)."
-              : "—"}
-          </p>
+        <div className="flex min-w-0 items-start gap-4">
+          <StoreLogo domain={domain} />
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl truncate">
+              {domain}
+            </h1>
+            <p className="mt-2 text-neutral-600">
+              {loading
+                ? "Checking available coupons..."
+                : data
+                ? data.is_shopify
+                  ? "Shopify store detected."
+                  : "Not a Shopify store (requests disabled)."
+                : "—"}
+            </p>
+          </div>
         </div>
 
-        <Button asChild variant="outline" size="sm">
-          <Link href="/dashboard">New search</Link>
+        <Button asChild variant="outline" size="sm" className="shrink-0">
+          <Link href="/search">New search</Link>
         </Button>
       </div>
 
       <section className="mt-10">
         {loading && (
-          <div className="rounded-2xl border border-neutral-200 p-6">
+          <Card variant="bordered" padding="lg">
             <div className="text-neutral-700">Loading…</div>
-          </div>
+          </Card>
         )}
 
         {!loading && error && (
@@ -172,7 +198,7 @@ export default function StorePage({
         )}
 
         {!loading && !error && data && data.coupons.length > 0 && (
-          <div className="rounded-2xl border border-neutral-200 p-6">
+          <Card variant="bordered" padding="lg">
             <h2 className="text-lg font-medium">Active coupon codes</h2>
             <ul className="mt-4 space-y-3">
               {data.coupons.map((code) => (
@@ -210,34 +236,62 @@ export default function StorePage({
                 {saveError}
               </p>
             )}
-          </div>
+          </Card>
         )}
 
         {!loading && !error && data && data.coupons.length === 0 && (
-          <div className="rounded-2xl border border-neutral-200 p-6">
-            <h2 className="text-lg font-medium">No active coupons found</h2>
-            <p className="mt-2 text-neutral-600">
-              We don’t have working codes for this store yet.
-            </p>
+          <Card variant="bordered" padding="lg">
+            {data.is_shopify ? (
+              <>
+                <div className="inline-flex items-center gap-2 rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">
+                  No codes yet
+                </div>
+                <h2 className="mt-4 text-lg font-medium text-neutral-900">
+                  We don’t have active coupons for this store.
+                </h2>
+                <p className="mt-2 text-neutral-600">
+                  You can request codes and we’ll add them to your dashboard when they’re ready.
+                </p>
 
-            {requestSent ? (
-              <p className="mt-4 text-sm text-emerald-600">
-                Request saved. We&apos;ll notify you when we have codes for this store.
-              </p>
+                {requestSent ? (
+                  <p className="mt-4 text-sm text-emerald-600">
+                    Request saved. We&apos;ll notify you when we have codes for this store.
+                  </p>
+                ) : (
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Button onClick={handleRequestCodes} disabled={requesting}>
+                      {requesting ? "Saving…" : "Request codes"}
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link href="/search">Try another store</Link>
+                    </Button>
+                  </div>
+                )}
+              </>
             ) : (
-              <div className="mt-5 flex flex-wrap gap-3">
-                <Button
-                  onClick={handleRequestCodes}
-                  disabled={requesting}
-                >
-                  {requesting ? "Saving…" : "Request codes"}
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href="/dashboard">Try another store</Link>
-                </Button>
-              </div>
+              <>
+                <div className="flex flex-col items-start">
+                  <span className="inline-flex items-center rounded-full bg-amber-50 py-1.5 pl-0 pr-3 text-sm font-semibold text-amber-800">
+                    Not Shopify
+                  </span>
+                  <h2 className="mt-2 text-lg font-medium text-neutral-900">
+                    Requests aren’t available for this store yet.
+                  </h2>
+                </div>
+                <p className="mt-2 text-neutral-600">
+                  For now we only support requests for Shopify stores. You can still explore stores where we already have active codes.
+                </p>
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <Button asChild variant="primary">
+                    <Link href="/explore">Explore stores</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href="/search">Try another store</Link>
+                  </Button>
+                </div>
+              </>
             )}
-          </div>
+          </Card>
         )}
       </section>
     </main>

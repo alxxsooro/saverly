@@ -83,7 +83,7 @@ export default function ExplorePage() {
             Check back later or search a store by URL in Search.
           </p>
           <Link
-            href="/dashboard"
+            href="/search"
             className="mt-4 inline-block text-sm font-medium text-neutral-900 underline"
           >
             Search by URL

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 
 const navLinks = [
   { href: "/home", label: "Home" },
-  { href: "/dashboard", label: "Search" },
+  { href: "/search", label: "Search" },
   { href: "/explore", label: "Explore" },
   { href: "/profile", label: "Profile" },
 ];
@@ -36,7 +36,7 @@ export function AppNavbar() {
           {navLinks.map(({ href, label }) => {
             const isActive =
               pathname === href ||
-              (href === "/dashboard" && pathname?.startsWith("/store"));
+              (href === "/search" && pathname?.startsWith("/store"));
             return (
               <Link
                 key={href}

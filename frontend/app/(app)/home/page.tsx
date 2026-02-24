@@ -177,7 +177,7 @@ export default function HomePage() {
                   <Link href="/explore">Explore stores</Link>
                 </Button>
                 <Button asChild variant="outline">
-                  <Link href="/dashboard">Search by URL</Link>
+                  <Link href="/search">Search by URL</Link>
                 </Button>
               </div>
             </Card>

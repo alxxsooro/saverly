@@ -235,7 +235,7 @@ def create_request(
 
     store_res = (
         supabase.table("stores")
-        .select("id")
+        .select("id, is_shopify")
         .eq("domain", domain)
         .limit(1)
         .execute()
@@ -244,6 +244,9 @@ def create_request(
         raise HTTPException(status_code=404, detail=f"Store '{domain}' not found. Search the store first (POST /api/store/inspect).")
 
     store_id = store_res.data[0]["id"]
+    is_shopify = bool(store_res.data[0].get("is_shopify"))
+    if not is_shopify:
+        raise HTTPException(status_code=400, detail="Requests are only available for Shopify stores.")
     row = {
         "store_id": store_id,
         "status": "pending",
