@@ -24,11 +24,11 @@ export function AppNavbar() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-neutral-200/80 bg-white/80 backdrop-blur-md">
-      <div className="mx-auto flex h-20 max-w-6xl items-center justify-between px-4 sm:px-6">
+    <header className="sticky top-0 z-50 w-full border-b border-neutral-800 bg-black backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link
           href="/home"
-          className="text-xl font-semibold tracking-tight text-neutral-900"
+          className="text-xl font-semibold tracking-tight text-white"
         >
           Saverly
         </Link>
@@ -41,10 +41,10 @@ export function AppNavbar() {
               <Link
                 key={href}
                 href={href}
-                className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-colors sm:text-base ${
+                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors sm:text-base ${
                   isActive
-                    ? "bg-neutral-100 text-neutral-900"
-                    : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
+                    ? "bg-neutral-800 text-white"
+                    : "text-white/80 hover:bg-neutral-800 hover:text-white"
                 }`}
               >
                 {label}
@@ -57,7 +57,7 @@ export function AppNavbar() {
           variant="ghost"
           size="sm"
           onClick={handleLogOut}
-          className="rounded-xl px-4 py-2.5 text-sm text-neutral-500 hover:bg-neutral-50 hover:text-neutral-700 sm:text-base"
+          className="rounded-full px-4 py-2 text-sm text-white/80 hover:bg-neutral-800 hover:text-white sm:text-base"
         >
           Log out
         </Button>

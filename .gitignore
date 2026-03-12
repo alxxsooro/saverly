@@ -23,5 +23,8 @@ backend/*.pyc
 backend/.pytest_cache/
 backend/.ruff_cache/
 
+# --- Scraper (privado, no subir a GitHub) ---
+backend/scraper/
+
 # --- Logs ---
 *.log

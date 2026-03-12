@@ -7,9 +7,9 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const variantStyles = {
-  default: "bg-white border border-neutral-200/80",
-  elevated: "bg-white shadow-sm shadow-neutral-200/50 border border-neutral-100",
-  bordered: "bg-neutral-50/50 border border-neutral-200",
+  default: "bg-neutral-900 border border-neutral-800 text-white",
+  elevated: "bg-neutral-900 shadow-sm shadow-black/40 border border-neutral-800 text-white",
+  bordered: "bg-neutral-950/60 border border-neutral-800 text-white",
 };
 
 const paddingStyles = {
@@ -62,7 +62,7 @@ export function CardTitle({
 }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h3
-      className={["text-lg font-semibold tracking-tight text-neutral-900", className].join(" ")}
+      className={["text-lg font-semibold tracking-tight text-white", className].join(" ")}
       {...props}
     />
   );
@@ -73,6 +73,6 @@ export function CardDescription({
   ...props
 }: React.HTMLAttributes<HTMLParagraphElement>) {
   return (
-    <p className={["text-sm text-neutral-600 mt-1", className].join(" ")} {...props} />
+    <p className={["text-sm text-white/70 mt-1", className].join(" ")} {...props} />
   );
 }

@@ -65,9 +65,9 @@ export default function AuthCallbackPage() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-white px-4">
-        <p className="text-center text-red-600">{error}</p>
-        <a href="/login" className="text-sky-600 underline hover:no-underline">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-black px-4">
+        <p className="text-center text-red-400">{error}</p>
+        <a href="/login" className="text-white underline hover:no-underline">
           Back to login
         </a>
       </div>
@@ -75,8 +75,8 @@ export default function AuthCallbackPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white">
-      <p className="text-neutral-500">Signing you in…</p>
+    <div className="flex min-h-screen items-center justify-center bg-black">
+      <p className="text-white/70">Signing you in…</p>
     </div>
   );
 }

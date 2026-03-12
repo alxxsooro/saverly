@@ -4,6 +4,7 @@ import Link from "next/link";
 import { use, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { RequestCodesModal } from "@/components/app/RequestCodesModal";
 import { createClient } from "@/lib/supabase/client";
 
 type CouponsResponse = {
@@ -57,41 +58,23 @@ export default function StorePage({
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [requestSent, setRequestSent] = useState(false);
-  const [requesting, setRequesting] = useState(false);
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [savingCode, setSavingCode] = useState<string | null>(null);
   const [savedCodes, setSavedCodes] = useState<string[]>([]);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const urlParam = useMemo(() => domain, [domain]);
 
-  async function handleRequestCodes() {
-    if (!data || !API_BASE) return;
+  // Load session when we're on the "no codes" block so modal can show email or "notify at X"
+  useEffect(() => {
+    if (!data || data.coupons.length > 0 || !data.is_shopify) return;
     const supabase = createClient();
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
-      window.location.href = `/login?returnUrl=${encodeURIComponent(`/store/${encodeURIComponent(domain)}`)}`;
-      return;
-    }
-    setRequesting(true);
-    setError(null);
-    setSaveError(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/requests`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ domain: data.domain }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.detail ?? "Request failed");
-      setRequestSent(true);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
-    } finally {
-      setRequesting(false);
-    }
-  }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSessionEmail(session?.user?.email ?? null);
+      setSessionToken(session?.access_token ?? null);
+    });
+  }, [data?.domain, data?.coupons?.length, data?.is_shopify]);
 
   async function handleSaveCode(code: string) {
     if (!data || !API_BASE) return;
@@ -299,13 +282,27 @@ export default function StorePage({
                   </p>
                 ) : (
                   <div className="mt-6 flex flex-wrap gap-3">
-                    <Button onClick={handleRequestCodes} disabled={requesting}>
-                      {requesting ? "Saving…" : "Request codes"}
+                    <Button onClick={() => setRequestModalOpen(true)}>
+                      Request codes
                     </Button>
                     <Button asChild variant="outline">
                       <Link href="/search">Try another store</Link>
                     </Button>
                   </div>
+                )}
+                {data && API_BASE && (
+                  <RequestCodesModal
+                    open={requestModalOpen}
+                    onClose={() => setRequestModalOpen(false)}
+                    domain={data.domain}
+                    userEmail={sessionEmail}
+                    accessToken={sessionToken}
+                    apiBase={API_BASE}
+                    onSuccess={() => {
+                      setRequestSent(true);
+                      setRequestModalOpen(false);
+                    }}
+                  />
                 )}
               </>
             ) : (

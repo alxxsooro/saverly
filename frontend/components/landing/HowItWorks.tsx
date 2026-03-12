@@ -25,14 +25,14 @@ export function HowItWorks() {
   return (
     <section
       id="how-it-works"
-      className="scroll-mt-20 border-t border-neutral-200/80 bg-neutral-50/50 px-4 pt-10 pb-8 sm:px-6 sm:pt-12 sm:pb-10"
+      className="scroll-mt-20 border-t border-neutral-800 bg-black px-4 pt-10 pb-8 sm:px-6 sm:pt-12 sm:pb-10"
     >
       <div className="mx-auto max-w-5xl">
         <div className="text-center">
-          <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl">
+          <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
             How it works
           </h2>
-          <p className="mt-3 max-w-lg mx-auto text-sm text-neutral-600">
+          <p className="mt-3 max-w-lg mx-auto text-sm text-white/70">
             Three simple steps to never overpay again. Paste a store link, get working codes, and copy at checkout.
           </p>
         </div>
@@ -42,19 +42,19 @@ export function HowItWorks() {
               key={item.step}
               variant="default"
               padding="md"
-              className="animate-fade-in-up"
+              className="animate-fade-in-up border-neutral-800 bg-neutral-900/80"
               style={{
                 animationDelay: `${0.2 + i * 0.12}s`,
                 animationFillMode: "both",
                 animationDuration: "0.6s",
               }}
             >
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-900 text-xs font-medium text-white">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white text-xs font-medium text-black">
                 {item.step}
               </span>
               <CardHeader className="mt-4 mb-0">
-                <CardTitle className="text-base">{item.title}</CardTitle>
-                <CardDescription className="mt-1.5 text-sm text-neutral-600">
+                <CardTitle className="text-base text-white">{item.title}</CardTitle>
+                <CardDescription className="mt-1.5 text-sm text-white/70">
                   {item.description}
                 </CardDescription>
               </CardHeader>

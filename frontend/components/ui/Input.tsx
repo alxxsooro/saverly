@@ -10,12 +10,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       <input
         ref={ref}
         className={[
-          "w-full rounded-xl border bg-white px-4 py-3 text-neutral-900 placeholder:text-neutral-400 transition-colors",
-          "focus:outline-none focus:ring-2 focus:ring-neutral-950 focus:ring-offset-2",
+          "w-full rounded-xl border bg-neutral-900 px-4 py-3 text-white placeholder:text-neutral-500 transition-colors",
+          "focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-neutral-900",
           "disabled:cursor-not-allowed disabled:opacity-60",
           error
-            ? "border-red-300 focus:ring-red-500 focus:border-red-500"
-            : "border-neutral-200 hover:border-neutral-300",
+            ? "border-red-500 focus:ring-red-500"
+            : "border-neutral-700 hover:border-neutral-600",
           className,
         ].join(" ")}
         {...props}

@@ -27,37 +27,37 @@ export function FAQ() {
   return (
     <section
       id="faq"
-      className="scroll-mt-20 border-t border-neutral-200/80 bg-neutral-50/50 px-4 pt-10 pb-16 sm:px-6 sm:pt-12 sm:pb-20"
+      className="scroll-mt-20 border-t border-neutral-800 bg-black px-4 pt-10 pb-16 sm:px-6 sm:pt-12 sm:pb-20"
     >
       <div className="mx-auto max-w-2xl">
         <div className="text-center">
-          <h2 className="text-2xl font-semibold tracking-tight text-neutral-900 sm:text-3xl">
+          <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
             Frequently asked questions
           </h2>
-          <p className="mt-2 text-sm text-neutral-500">
+          <p className="mt-2 text-sm text-white/60">
             Quick answers to common questions.
           </p>
         </div>
 
-        <div className="mt-10 border border-neutral-200/80 rounded-2xl bg-white shadow-sm overflow-hidden">
+        <div className="mt-10 border border-neutral-800 rounded-2xl bg-neutral-900/80 overflow-hidden">
           {faqs.map((faq, i) => {
             const isOpen = openIndex === i;
             return (
               <div
                 key={i}
-                className="border-b border-neutral-100 last:border-b-0"
+                className="border-b border-neutral-800 last:border-b-0"
               >
                 <button
                   type="button"
                   onClick={() => setOpenIndex(isOpen ? null : i)}
-                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-neutral-50/80"
+                  className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-neutral-800/80"
                   aria-expanded={isOpen}
                 >
-                  <span className="text-sm font-medium text-neutral-900 sm:text-base">
+                  <span className="text-sm font-medium text-white sm:text-base">
                     {faq.q}
                   </span>
                   <span
-                    className={`shrink-0 text-neutral-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                    className={`shrink-0 text-white/60 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
                     aria-hidden
                   >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -72,7 +72,7 @@ export function FAQ() {
                   }}
                 >
                   <div className="overflow-hidden">
-                    <p className="px-5 pb-4 pt-0 text-sm text-neutral-600 leading-relaxed">
+                    <p className="px-5 pb-4 pt-0 text-sm text-white/70 leading-relaxed">
                       {faq.a}
                     </p>
                   </div>

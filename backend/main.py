@@ -1,13 +1,18 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
 from supabase_client import supabase
 from typing import List, Optional
 from fastapi import Query
+import time
+import threading
+from collections import defaultdict, deque
+import os
 
 from utils import normalize_domain, is_shopify_html, is_shopify_by_cart_js
 from auth import get_user_id_from_token, require_user_id
+from worker import run_once, WorkerConfig
 
 app = FastAPI(title="Discountly API")
 
@@ -46,7 +51,8 @@ class StoresResponse(BaseModel):
 
 
 class CreateRequestPayload(BaseModel):
-    domain: str
+    domain: Optional[str] = None
+    url: Optional[str] = None
     email: Optional[str] = None
 
 
@@ -84,28 +90,65 @@ class SavedCodesResponse(BaseModel):
 def health():
     return {"status": "ok"}
 
+REQUESTS_RATE_WINDOW_SEC = 60
+REQUESTS_RATE_MAX_PER_WINDOW = 8
+_requests_by_ip: dict[str, deque] = defaultdict(deque)
+_requests_lock = threading.Lock()
 
-@app.post("/api/store/inspect", response_model=InspectResponse)
-def inspect_store(payload: InspectRequest):
-    # 1) Normalize domain
-    try:
-        domain = normalize_domain(payload.url)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
 
+def _client_ip(request: Request) -> str:
+    # If behind a proxy, X-Forwarded-For may be set (first IP is original client).
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
+def rate_limit_requests(request: Request) -> None:
+    """
+    Basic anti-spam rate limit per IP for POST /api/requests.
+    In-memory (per-process) sliding window.
+    """
+    ip = _client_ip(request)
+    now = time.time()
+    with _requests_lock:
+        q = _requests_by_ip[ip]
+        while q and (now - q[0]) > REQUESTS_RATE_WINDOW_SEC:
+            q.popleft()
+        if len(q) >= REQUESTS_RATE_MAX_PER_WINDOW:
+            retry_after = int(max(1, REQUESTS_RATE_WINDOW_SEC - (now - q[0])))
+            raise HTTPException(
+                status_code=429,
+                detail="Too many requests. Please wait and try again.",
+                headers={"Retry-After": str(retry_after)},
+            )
+        q.append(now)
+
+
+def inspect_and_upsert_store(domain: str) -> tuple[str, str, bool]:
+    """
+    Detect if a store is Shopify and upsert it in Supabase.
+    Returns (store_id, domain, is_shopify).
+    """
     headers = {"User-Agent": "Mozilla/5.0 (compatible; DiscountlyBot/0.1)"}
 
-    # 2) Fast path: try /cart.js to detect Shopify
+    # 1) Fast path: try /cart.js to detect Shopify
     shopify = False
     try:
-        cart_resp = requests.get(f"https://{domain}/cart.js", timeout=6, headers=headers)
+        cart_resp = requests.get(
+            f"https://{domain}/cart.js", timeout=6, headers=headers
+        )
         if cart_resp.status_code == 200:
-            if is_shopify_by_cart_js(cart_resp.text, cart_resp.headers.get("Content-Type", "")):
+            if is_shopify_by_cart_js(
+                cart_resp.text, cart_resp.headers.get("Content-Type", "")
+            ):
                 shopify = True
     except requests.RequestException:
         pass  # fall back to HTML method
 
-    # 3) If not detected via cart.js, fetch homepage HTML and use pattern detection
+    # 2) If not detected via cart.js, fetch homepage HTML and use pattern detection
     if not shopify:
         html = ""
         try:
@@ -116,26 +159,31 @@ def inspect_store(payload: InspectRequest):
             html = ""
         shopify = is_shopify_html(html)
 
-    # 4) Upsert store in Supabase (by unique domain)
+    # 3) Upsert store in Supabase (by unique domain)
     try:
         res = (
             supabase.table("stores")
-            .upsert(
-                {"domain": domain, "is_shopify": shopify},
-                on_conflict="domain"
-            )
+            .upsert({"domain": domain, "is_shopify": shopify}, on_conflict="domain")
             .execute()
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Supabase error: {e}")
 
-    # Supabase returns inserted/updated rows in res.data
     if not res.data or len(res.data) == 0:
-        # If this happens, something is wrong with permissions/response
         raise HTTPException(status_code=500, detail="Supabase upsert returned no data")
 
     store_id = res.data[0]["id"]
+    return store_id, domain, shopify
 
+
+@app.post("/api/store/inspect", response_model=InspectResponse)
+def inspect_store(payload: InspectRequest):
+    # 1) Normalize domain
+    try:
+        domain = normalize_domain(payload.url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    store_id, domain, shopify = inspect_and_upsert_store(domain)
     return InspectResponse(store_id=store_id, domain=domain, is_shopify=shopify)
 
 @app.get("/api/coupons", response_model=CouponsResponse)
@@ -217,6 +265,8 @@ def list_stores():
 @app.post("/api/requests")
 def create_request(
     payload: CreateRequestPayload,
+    request: Request,
+    _rl: None = Depends(rate_limit_requests),
     user_id: Optional[str] = Depends(get_user_id_from_token),
 ):
     """
@@ -228,8 +278,11 @@ def create_request(
             status_code=400,
             detail="Either log in (Authorization: Bearer <token>) or provide email in body",
         )
+    if not (payload.domain and payload.domain.strip()) and not (payload.url and payload.url.strip()):
+        raise HTTPException(status_code=400, detail="Missing 'domain' or 'url'")
     try:
-        domain = normalize_domain(payload.domain)
+        raw = payload.url.strip() if payload.url and payload.url.strip() else payload.domain  # type: ignore[assignment]
+        domain = normalize_domain(raw)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -241,10 +294,11 @@ def create_request(
         .execute()
     )
     if not store_res.data:
-        raise HTTPException(status_code=404, detail=f"Store '{domain}' not found. Search the store first (POST /api/store/inspect).")
-
-    store_id = store_res.data[0]["id"]
-    is_shopify = bool(store_res.data[0].get("is_shopify"))
+        # If the store doesn't exist yet, inspect+upsert it automatically.
+        store_id, _domain, is_shopify = inspect_and_upsert_store(domain)
+    else:
+        store_id = store_res.data[0]["id"]
+        is_shopify = bool(store_res.data[0].get("is_shopify"))
     if not is_shopify:
         raise HTTPException(status_code=400, detail="Requests are only available for Shopify stores.")
     row = {
@@ -419,4 +473,19 @@ def list_saved_codes(user_id: str = Depends(require_user_id)):
             )
         )
     return SavedCodesResponse(codes=out)
+
+
+@app.post("/api/worker/kick")
+def kick_worker(request: Request):
+    """
+    Simple v1 kick endpoint (for cron-less deployments).
+    Protect with WORKER_KICK_SECRET via header X-Worker-Secret.
+    """
+    secret = os.getenv("WORKER_KICK_SECRET")
+    if secret:
+        got = request.headers.get("x-worker-secret")
+        if got != secret:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+    cfg = WorkerConfig()
+    return run_once(cfg)
 
