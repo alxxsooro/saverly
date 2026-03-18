@@ -17,8 +17,8 @@ The platform is designed around two main flows:
 
 This makes Saverly more than a static coupon site: it is a system for collecting demand, analyzing store targets, and scaling discount discovery across multiple Shopify-based e-commerce sources.
 
+![Quiz Feature](images/landing_page.png)
 ---
-
 ## Problem
 
 Discount discovery in e-commerce is fragmented and unreliable.
