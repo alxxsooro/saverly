@@ -38,6 +38,7 @@ Saverly provides:
 - A backend-oriented workflow for processing store requests and supporting discount discovery logic
 - A foundation for worker-based automation to scale analysis across multiple stores
 
+![Quiz Feature](images/home_page.png)
 ---
 
 ## Core Product Flows
